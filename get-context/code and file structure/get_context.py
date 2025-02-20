@@ -1,10 +1,23 @@
 """
 Script Name: get_context.py
-Description: This script scans a project's directory, retrieves the file structure, and extracts contents of relevant files. 
-             It then generates a structured report (`GET_CONTEXT.txt`) containing the directory tree and file contents. 
-             The script excludes unnecessary files and directories such as `node_modules`, `.git`, and certain config files.
+Description: This script scans the project's directory, retrieves the file structure, and extracts contents of relevant files. 
+             It generates a structured report ('GET_CONTEXT.txt') containing the directory tree and file contents. 
+             The script automatically excludes unnecessary files and directories such as 'node_modules', '.git', and config files.
+
+Dependencies:
+- Standard Python Library (no external packages required)
+
+Installation:
+No additional installation is required. This script only uses standard Python libraries.
+
+How to Use:
+1. Place the script in the root of your project directory.
+2. Run the script:
+    python get_context.py
+3. The output will be saved to 'GET_CONTEXT.txt' in the same directory.
+
 Author: Farimah M. Nassiri
-Last_Updated: Feb 19, 2025. 
+Date: 2025-02-19
 Version: 2.0
 """
 import os
