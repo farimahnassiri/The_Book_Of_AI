@@ -171,7 +171,7 @@ def main():
     elif os.name == "nt":  # Windows
         os.system("cls")
 
-    print("\n✅ Key erased. Mr. Stark, I don’t feel so good…\n")
+    print("\n✅ Key erased. Gone. Like everyone's hopes at 9AM Monday.\n")
     sys.exit(0)
 
 if __name__ == "__main__":
