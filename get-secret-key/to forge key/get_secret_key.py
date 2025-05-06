@@ -28,6 +28,8 @@ import random
 import hmac
 import hashlib
 import gc
+import signal
+from django.core.management.utils import get_random_secret_key
 
 # 1. GENERATE RANDOM ALPHANUMERIC KEY
 def generate_random_key(length=32):
@@ -73,6 +75,11 @@ def generate_hmac_key(secret="my_secret"):
     """Generate an HMAC-SHA256 key."""
     return hmac.new(secret.encode(), b"secure_data", hashlib.sha256).hexdigest()
 
+# 9. GENERATE USING DJANGO BUILT_IN
+def generate_django_secure_key():
+    """Generate a secure key using Django's built-in function."""
+    return get_random_secret_key()
+
 # COUNTDOWN TIMER BEFORE KEY ERASURE
 def countdown_timer(seconds):
     """Displays a countdown timer and wipes the key after time runs out."""
@@ -89,30 +96,62 @@ def wipe_key_from_memory(key_ref):
     del key_ref  # Delete variable
     gc.collect()  # Force garbage collection
 
+# Global variable to store the generated key for secure erasure
+generated_key = None
+
+# Signal handler for secure termination
+def handle_exit_signal(signum, frame):
+    """Handle exit signals by securely erasing the key before termination."""
+    print("\n\n🚨 Program termination detected! Attempting secure cleanup...")
+    
+    global generated_key
+    if generated_key:
+        # Securely erase key from memory
+        wipe_key_from_memory(generated_key)
+        generated_key = None
+        
+        # Clear terminal history for security
+        if os.name == "posix":  # Linux/Mac
+            os.system("history -c && clear")
+        elif os.name == "nt":  # Windows
+            os.system("cls")
+    
+    print("✅ Emergency cleanup completed. Key erased from memory.")
+    sys.exit(1)
+
 # MAIN FUNCTION
 def main():
+    # Register signal handlers for common termination signals
+    signal.signal(signal.SIGINT, handle_exit_signal)  # Ctrl+C
+    signal.signal(signal.SIGTERM, handle_exit_signal)  # Termination request
+    
+    # For Windows, try to handle Ctrl+Break if possible
+    if hasattr(signal, 'SIGBREAK'):
+        signal.signal(signal.SIGBREAK, handle_exit_signal)
+    
     print("\n🔹 Secure Key Generator 🔹")
     print("1. Generate Random Alphanumeric Key")
     print("2. Generate UUID-Based Key")
-    print("3. Generate a Secure Hexadecimal Key")
+    print("3. Generate a Secure Hexadecimal Key") 
     print("4. Generate a SHA-256 Hashed Key")
     print("5. Generate a Secure Base64 Key")
     print("6. Generate a Secure Numeric Key (OTP or PIN)")
     print("7. Generate a Diceware Passphrase (Human-Readable)")
     print("8. Generate an HMAC-SHA256 Secure Key")
+    print("9. Generate using Django's built-in method")
 
     attempts = 0
     max_attempts = 3
 
     while attempts < max_attempts:
-        choice = input("Enter choice (1-8): ").strip()
+        choice = input("Enter choice (1-9): ").strip()
 
         if choice.isdigit():  # Ensure input is numeric
             choice = int(choice)
-            if 1 <= choice <= 8:
+            if 1 <= choice <= 9:  # Updated to include choice 9
                 break  # Valid choice, exit loop
             else:
-                print("❌ Invalid choice! Please enter a number between 1 and 8.")
+                print("❌ Invalid choice! Please enter a number between 1 and 9.")  # Updated message
         else:
             print("❌ Invalid input! Please enter a number only.")
 
@@ -147,13 +186,18 @@ def main():
         6: generate_numeric_key,
         7: generate_passphrase,
         8: generate_hmac_key,
+        9: generate_django_secure_key
     }
-    key = key_generators[choice]()  # Call the selected function
+    
+    # Set the global key variable for signal handlers to access
+    global generated_key
+    generated_key = key_generators[choice]()  # Call the selected function
 
     # Display the generated key
     print("\n🔑 Generated Key (Copy it now! It will be destroyed soon):\n")
-    print(f"📌 {key}\n")
+    print(f"📌 {generated_key}\n")
     print(f"⚠️ WARNING: You have {seconds} seconds to copy the key before it is permanently erased.")
+    print("⚠️ IMPORTANT: Even if you terminate the program early (Ctrl+C), the key will be erased!")
 
     # Start countdown in a separate thread
     timer_thread = threading.Thread(target=countdown_timer, args=(seconds,))
@@ -163,7 +207,8 @@ def main():
     timer_thread.join()
 
     # Securely erase key from memory
-    wipe_key_from_memory(key)
+    wipe_key_from_memory(generated_key)
+    generated_key = None
 
     # Clear terminal history for security
     if os.name == "posix":  # Linux/Mac
