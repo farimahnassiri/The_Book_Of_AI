@@ -121,7 +121,6 @@ def html_to_markdown(content_html: str) -> str:
     return html_to_md(
         content_html,
         heading_style="ATX",
-        strip=["span", "div"],
         convert=["h1", "h2", "h3", "p", "ul", "ol", "li", "a"],
     ).strip()
 
