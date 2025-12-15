@@ -8,11 +8,11 @@ from typing import Optional, Set
 from urllib.parse import urljoin, urlparse
 
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 from markdownify import markdownify as html_to_md
 
 
-DEFAULT_START_URL = ""  # Set a default starting URL here for local runs.
+DEFAULT_START_URL = "https://mewe-ir.com/en/home/"  # Set a default starting URL here for local runs.
 
 
 def parse_args() -> argparse.Namespace:
@@ -67,9 +67,29 @@ def fetch_html(session: requests.Session, url: str) -> Optional[str]:
 
 
 def strip_noise(soup: BeautifulSoup) -> None:
-    """Remove common non-content elements to reduce noise."""
+    """Remove common non-content elements (headers, nav, footers, etc.)."""
     for tag_name in ["script", "style", "noscript", "header", "footer", "nav", "aside"]:
         for tag in soup.find_all(tag_name):
+            tag.decompose()
+
+    # Drop elements that look like footers/headers/navigation based on class/id/role.
+    noisy_tokens = ("footer", "foot", "header", "nav", "breadcrumb")
+    for tag in soup.find_all(True):
+        if not isinstance(tag, Tag):
+            continue
+
+        attrs = tag.attrs or {}
+        classes_raw = attrs.get("class") or []
+        classes = classes_raw if isinstance(classes_raw, list) else [classes_raw]
+
+        haystack_parts = [
+            " ".join(classes),
+            str(attrs.get("id") or ""),
+            str(attrs.get("role") or ""),
+            str(attrs.get("aria-label") or ""),
+        ]
+        haystack = " ".join(haystack_parts).lower().strip()
+        if haystack and any(token in haystack for token in noisy_tokens):
             tag.decompose()
 
 
@@ -158,6 +178,10 @@ def crawl(start_url: str, max_pages: int, output_dir: str) -> None:
             continue
 
         soup = BeautifulSoup(html, "html.parser")
+
+        # Collect links before stripping noise so nav/footers don't hide child pages.
+        page_links = [a for a in soup.find_all("a", href=True) if isinstance(a, Tag)]
+
         strip_noise(soup)
         content_html = extract_content_html(soup)
         if not content_html.strip():
@@ -174,8 +198,12 @@ def crawl(start_url: str, max_pages: int, output_dir: str) -> None:
 
         combined_pages.append(page_md)
 
-        for link in soup.find_all("a", href=True):
-            href = link.get("href", "")
+        for link in page_links:
+            if not isinstance(link, Tag):
+                continue
+
+            attrs = link.attrs or {}
+            href = attrs.get("href") or ""
             if not href:
                 continue
             if not is_internal(href, domain):
